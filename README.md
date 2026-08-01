@@ -1,6 +1,8 @@
 # Time Series Streamflow Forecasting
 
-Daily streamflow forecasting comparing statistical (SARIMAX), machine learning (XGBoost), and baseline (seasonal naive) approaches. Features lag engineering, seasonal decomposition, and comprehensive evaluation using hydrology-standard metrics.
+Daily streamflow forecasting experiment comparing statistical (SARIMAX), machine learning (XGBoost), and baseline (seasonal naive) approaches. It demonstrates lag engineering, seasonal decomposition, and hydrology-standard metrics on a deterministic synthetic time series.
+
+> **Scope:** This is a synthetic-data benchmark, not evidence of operational or real-catchment forecasting performance. The XGBoost evaluation is one-step-ahead: test features include discharge values observed at prior timestamps. It is not a recursive multi-day forecast evaluation.
 
 ## Results
 
@@ -67,6 +69,7 @@ Daily streamflow forecasting comparing statistical (SARIMAX), machine learning (
 ### Evaluation
 - Train: first 13 years, Test: last 2 years (730 days)
 - Metrics: RMSE, MAE, R², Nash-Sutcliffe Efficiency (NSE), MAPE
+- XGBoost: one-step-ahead predictions using only lagged target and weather features
 
 ## Project Structure
 
@@ -93,6 +96,16 @@ python src/generate_data.py
 python src/forecast.py
 ```
 
+The generator uses a fixed seed, so it recreates the synthetic input deterministically. The tracked figures and JSON record one reference run; versions of numerical libraries may cause small differences when rerun.
+
+## Reproducibility Check
+
+```bash
+python scripts/check_repository.py
+```
+
+The check validates the tracked pipeline and reference artifacts without installing the ML stack or rerunning SARIMAX/XGBoost.
+
 ## Tech Stack
 
 - **XGBoost** — Gradient boosted trees for daily forecasting
@@ -109,4 +122,4 @@ python src/forecast.py
 
 ## License
 
-MIT
+MIT. See [LICENSE](LICENSE).
