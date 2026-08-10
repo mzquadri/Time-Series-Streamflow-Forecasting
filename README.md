@@ -1,6 +1,10 @@
 # Time Series Streamflow Forecasting
 
-Daily streamflow forecasting experiment comparing statistical (SARIMAX), machine learning (XGBoost), and baseline (seasonal naive) approaches. It demonstrates lag engineering, seasonal decomposition, and hydrology-standard metrics on a deterministic synthetic time series.
+How much better is machine learning than classical statistics for streamflow forecasting — and how much better than just repeating last year? This experiment answers that honestly on a synthetic 15-year daily series: a seasonal-naive baseline, a SARIMAX fit on monthly means, and XGBoost on hand-engineered lag features, all scored with the metrics hydrologists actually use (NSE included).
+
+The short answer: gradient boosting wins by a wide margin (R² 0.979 vs 0.721), and the naive baseline is not even competitive. The longer answer — feature importance, seasonal decomposition, and where each model fails — is in the figures below.
+
+![Model comparison](docs/diagrams/model_comparison.svg)
 
 > **Scope:** This is a synthetic-data benchmark, not evidence of operational or real-catchment forecasting performance. The XGBoost evaluation is one-step-ahead: test features include discharge values observed at prior timestamps. It is not a recursive multi-day forecast evaluation.
 
@@ -84,6 +88,7 @@ Daily streamflow forecasting experiment comparing statistical (SARIMAX), machine
 │   ├── figures/           # 9 visualization plots
 │   ├── forecast_results.json
 │   └── xgboost_model.pkl
+├── docs/diagrams/         # SVG model-comparison diagram
 ├── requirements.txt
 └── README.md
 ```
