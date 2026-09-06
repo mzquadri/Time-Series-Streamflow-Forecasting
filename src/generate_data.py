@@ -9,9 +9,10 @@ Creates a 15-year daily streamflow time series with:
 - Realistic noise
 """
 
+import os
+
 import numpy as np
 import pandas as pd
-import os
 
 
 def generate_streamflow(n_years: int = 15, seed: int = 42) -> pd.DataFrame:
