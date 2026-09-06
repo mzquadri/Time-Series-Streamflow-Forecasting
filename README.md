@@ -1,130 +1,168 @@
-# Time Series Streamflow Forecasting
+# When gradient boosting is the wrong tool
 
-How much better is machine learning than classical statistics for streamflow forecasting — and how much better than just repeating last year? This experiment answers that honestly on a synthetic 15-year daily series: a seasonal-naive baseline, a SARIMAX fit on monthly means, and XGBoost on hand-engineered lag features, all scored with the metrics hydrologists actually use (NSE included).
+A controlled forecasting experiment on a synthetic daily streamflow series. It
+compares SARIMAX, XGBoost and a ridge model against the baselines that actually
+matter, and finds that the gradient booster loses to predicting yesterday's value.
 
-The short answer: gradient boosting wins by a wide margin (R² 0.979 vs 0.721), and the naive baseline is not even competitive. The longer answer — feature importance, seasonal decomposition, and where each model fails — is in the figures below.
+**The series is not real.** It comes from a generator in this repository, seed 42.
+There is no gauge, no catchment, no observed record. Nothing here is operational
+hydrology and none of it says anything about forecasting a real river.
 
-![Model comparison](docs/diagrams/model_comparison.svg)
+## What went wrong the first time
 
-> **Scope:** This is a synthetic-data benchmark, not evidence of operational or real-catchment forecasting performance. The XGBoost evaluation is one-step-ahead: test features include discharge values observed at prior timestamps. It is not a recursive multi-day forecast evaluation.
+This repository previously reported XGBoost at R2 0.979 against SARIMAX at 0.721
+and concluded that "gradient boosting wins by a wide margin". Two problems made
+that unreadable.
+
+**The two numbers described different targets.** SARIMAX was fitted and scored on
+monthly averages, XGBoost on daily values. Averaging to months removes most of the
+day-to-day variation, so the two R2 values are not on a common scale and cannot be
+ranked against each other.
+
+**The only baseline offered was one that could not win.** A day-of-year mean scores
+R2 of -11.69 here, and that was reported as evidence the models were good. The
+reason it fails has nothing to do with seasonality, as shown below.
+
+Neither problem was leakage. The lag features are all shifted by at least one day
+and the rolling statistics are taken after a shift, so no row sees its own target.
+The split was already chronological. The conclusions were the problem, not the
+plumbing.
+
+## The series
+
+![The character of the series](docs/figures/01_series_character.png)
+
+Fifteen years of daily values. The generator carries 85% of yesterday's value into
+today, adds a seasonal pull, a rainfall response over five lags, a small linear
+trend and noise.
+
+Two properties follow, and they decide every result:
+
+**Lag-one autocorrelation is 0.9987.** Tomorrow is essentially today plus a small
+correction, so repeating yesterday's value is a strong forecast. Any method that
+cannot beat it has learned nothing about this series.
+
+**The level drifts a long way.** The autoregressive loop divides the linear trend
+by the 0.15 pull coefficient, amplifying it about sevenfold, so the mean rises from
+70.5 in the first year to 236.2 in the last. That is why a day-of-year average fails:
+it is fitted on years that sat far lower.
 
 ## Results
 
-| Model | RMSE (m³/s) | MAE (m³/s) | R² | NSE | MAPE (%) |
-|-------|-------------|------------|-----|-----|----------|
-| Seasonal Naive | 90.30 | 89.94 | -11.69 | -11.69 | 39.09 |
-| SARIMAX (Monthly) | 13.54 | 11.90 | 0.721 | 0.721 | 5.22 |
-| **XGBoost** | **3.71** | **2.87** | **0.979** | **0.979** | **1.20** |
+![Daily comparison](docs/figures/02_daily_comparison.png)
 
-### Time Series Overview
+Daily, all six scored on the same 730 held-out days, the last two years:
 
-![Overview](results/figures/01_time_series_overview.png)
+| Method | RMSE (m3/s) | MAE (m3/s) | R2 |
+| --- | --- | --- | --- |
+| **Ridge on features** | **2.003** | **1.596** | **0.994** |
+| Random walk with drift | 2.757 | 2.140 | 0.988 |
+| Persistence | 2.757 | 2.139 | 0.988 |
+| XGBoost | 3.731 | 2.890 | 0.978 |
+| Day-of-year mean plus trend | 7.135 | 5.541 | 0.921 |
+| Day-of-year mean | 90.299 | 89.935 | -11.692 |
 
-### Seasonal Decomposition
+XGBoost, reading twenty engineered lag, rolling and calendar features, is beaten by
+a one-line baseline. A ridge model on those same features is the only method that
+improves on persistence, and it does so by a real margin.
 
-![Decomposition](results/figures/02_seasonal_decomposition.png)
+The day-of-year mean's -11.69 is entirely the drift. Given the training trend to
+extrapolate, the same seasonal information reaches 0.921. Reporting the broken
+version alone made the models look better than they are.
 
-### XGBoost Feature Importance
+## Why the tree loses
 
-![Feature Importance](results/figures/03_xgb_feature_importance.png)
+![Why the tree loses](docs/figures/03_why_the_tree_loses.png)
 
-### XGBoost Forecast vs Observed
+The target is almost yesterday's value: the standard deviation of the daily change
+is 2.89 against a series standard deviation of 55. So the entire job is predicting
+a small correction on top of a number the model already has.
 
-![XGBoost Prediction](results/figures/04_xgboost_prediction.png)
+A tree ensemble predicts piecewise constants. It cannot represent the identity
+function exactly, and on average it lands 2.62 away from yesterday's value, which
+is nearly the size of the whole daily change. Most of that movement is error rather
+than signal.
 
-### Zoomed View (First 120 Test Days)
+Ridge represents the identity directly, with a coefficient near one on lag 1, and
+spends only 1.30 of movement on the seasonal and rainfall corrections that are
+genuinely useful.
 
-![Zoomed](results/figures/05_prediction_zoomed.png)
+This is not a claim that boosting is generally worse. It is a claim about this
+shape of problem: when the target is dominated by a near-identity mapping from one
+feature, a model that cannot represent that mapping cheaply starts at a
+disadvantage that feature engineering does not fix.
 
-### SARIMAX Monthly Forecast
+## Daily against monthly
 
-![SARIMAX](results/figures/06_sarimax_forecast.png)
+![Daily against monthly](docs/figures/04_daily_against_monthly.png)
 
-### Scatter Plots
+Both granularities are reported, separately, each with its own baselines.
 
-![Scatter](results/figures/07_scatter_plots.png)
+| Monthly, 24 points | RMSE | MAE | R2 |
+| --- | --- | --- | --- |
+| **SARIMAX** | **4.679** | **3.829** | **0.963** |
+| Random walk with drift | 13.562 | 11.589 | 0.689 |
+| Persistence | 13.608 | 11.589 | 0.687 |
 
-### Error Analysis
+Read on its own terms, SARIMAX does well: it beats a monthly random walk clearly,
+which is a genuine result the original framing obscured. What cannot be done is
+compare its 0.963 with a daily 0.978 and call one better.
 
-![Error](results/figures/08_error_analysis.png)
-
-### Model Comparison
-
-![Comparison](results/figures/09_model_comparison.png)
-
-## Methodology
-
-### Data
-- 15-year synthetic daily streamflow time series (2008-2022)
-- Features: precipitation (mm), temperature (°C)
-- Seasonal snowmelt pattern, precipitation-driven events, autoregressive structure
-
-### Feature Engineering (XGBoost)
-- **Lag features**: 1, 2, 3, 7, 14, 30, 365-day lags
-- **Rolling statistics**: 7, 14, 30-day rolling mean and standard deviation
-- **Calendar features**: Cyclical month/day-of-year encoding (sin/cos)
-- **Precipitation**: Lag and 7-day cumulative sum
-
-### Models
-1. **Seasonal Naive**: Same-day-of-year average from training set
-2. **SARIMAX(1,1,1)(1,1,1,12)**: Applied to monthly means
-3. **XGBoost**: 300 trees, depth 6, learning rate 0.05, with lag features
-
-### Evaluation
-- Train: first 13 years, Test: last 2 years (730 days)
-- Metrics: RMSE, MAE, R², Nash-Sutcliffe Efficiency (NSE), MAPE
-- XGBoost: one-step-ahead predictions using only lagged target and weather features
-
-## Project Structure
-
-```
-.
-├── src/
-│   ├── generate_data.py   # Synthetic streamflow data generation
-│   └── forecast.py        # Full forecasting pipeline
-├── data/
-│   └── streamflow.csv     (generated, not tracked)
-├── results/
-│   ├── figures/           # 9 visualization plots
-│   ├── forecast_results.json
-│   └── xgboost_model.pkl
-├── docs/diagrams/         # SVG model-comparison diagram
-├── requirements.txt
-└── README.md
-```
-
-## How to Run
+## Reproducing
 
 ```bash
 pip install -r requirements.txt
 python src/generate_data.py
-python src/forecast.py
+python src/experiment.py
 ```
 
-The generator uses a fixed seed, so it recreates the synthetic input deterministically. The tracked figures and JSON record one reference run; versions of numerical libraries may cause small differences when rerun.
-
-## Reproducibility Check
+`src/experiment.py` regenerates the series from seed 42, refits every model and
+baseline, and writes `results/benchmark.json`, which holds every number quoted
+above. It takes well under a minute.
 
 ```bash
+pip install -r requirements-dev.txt
+python scripts/figures/generate_figures.py
+python -m pytest -q
 python scripts/check_repository.py
 ```
 
-The check validates the tracked pipeline and reference artifacts without installing the ML stack or rerunning SARIMAX/XGBoost.
+The check fails if this README stops stating the scores the recorded run produced,
+and also if a future run reverses the central finding while the text still claims
+it.
 
-## Tech Stack
+## Limitations
 
-- **XGBoost** — Gradient boosted trees for daily forecasting
-- **statsmodels** — SARIMAX time series modeling
-- **scikit-learn** — Evaluation metrics
-- **pandas / NumPy** — Data manipulation and feature engineering
-- **matplotlib** — Visualization
+The series is synthetic and its structure is known, which is what makes the
+comparison clean and also what makes it narrow. A real record would have gauge
+error, non-stationarity from causes other than a linear trend, missing values and
+regulation.
 
-## References
+The result is about one series with one shape. A different autoregressive
+coefficient, or a target that was not dominated by its own lag, could reverse the
+ordering entirely. Nothing here says gradient boosting is generally unsuited to
+time series.
 
-- Kratzert, F. et al. (2019). Towards learning universal, regional, and local hydrological behaviors via machine learning applied to large-sample datasets. *HESS*.
-- Hyndman, R. J. & Athanasopoulos, G. (2021). *Forecasting: Principles and Practice*, 3rd edition.
-- Nash, J.E. & Sutcliffe, J.V. (1970). River flow forecasting through conceptual models. *Journal of Hydrology*.
+The test period is a single contiguous two years scored once, with no repeated
+seeds, so the margins are single measurements rather than confidence intervals.
 
-## License
+The models forecast one step ahead with the true previous value available. That is
+the easiest version of the problem, and multi-step forecasting, where errors
+compound, would look very different.
+
+## Provenance
+
+The generator, baselines, experiment runner, tests and figures are the author's
+own work. SARIMAX comes from statsmodels, the gradient booster from xgboost, and
+ridge regression from scikit-learn.
+
+A companion repository,
+[Deep-Learning-Flood-Prediction-LSTM](https://github.com/mzquadri/Deep-Learning-Flood-Prediction-LSTM),
+asks a different question on a different synthetic catchment: it forecasts
+discharge from weather alone, without access to past discharge, so persistence is
+not available to it at all. The two are separate experiments and share no data,
+model or result.
+
+## Licence
 
 MIT. See [LICENSE](LICENSE).
