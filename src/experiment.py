@@ -22,6 +22,9 @@ import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from sklearn.linear_model import Ridge
+from xgboost import XGBRegressor
+
 from baselines import (
     climatology,
     climatology_with_trend,
@@ -37,6 +40,8 @@ OUT = os.path.join(RESULTS, "benchmark.json")
 
 TARGET = "streamflow_m3s"
 TEST_YEARS = 2
+#: Extra generated series used only to check the finding is not seed-specific.
+SEEDS = (42, 7, 123, 2024, 99)
 LAGS = [1, 2, 3, 7, 14, 30, 365]
 WINDOWS = [7, 14, 30]
 
@@ -92,14 +97,14 @@ def main() -> int:
     x_test = feat.loc[feat_test, columns]
     y_test = feat.loc[feat_test, TARGET].to_numpy()
 
-    from sklearn.linear_model import Ridge
-    from xgboost import XGBRegressor
-
     models = {
         "ridge_on_features": Ridge(alpha=1.0).fit(x_train, y_train).predict(x_test),
+        # tree_method="exact" because the default histogram builder gives a
+        # different model for a different thread count, so the published RMSE
+        # depended on the machine that produced it. Exact is thread-independent.
         "xgboost": XGBRegressor(
             n_estimators=500, max_depth=6, learning_rate=0.05, subsample=0.8,
-            colsample_bytree=0.8, random_state=42, n_jobs=2,
+            colsample_bytree=0.8, random_state=42, n_jobs=1, tree_method="exact",
         ).fit(x_train, y_train).predict(x_test),
     }
     # The baselines are recomputed on the model's rows so every daily number in
@@ -158,6 +163,41 @@ def main() -> int:
     }
     daily_change_std = float(np.diff(y).std())
 
+    # One seed is one measurement. The central claim is repeated across several
+    # generated series so it is not a property of seed 42.
+    print("\n  repeating the comparison on other seeds:")
+    robustness = []
+    for other in SEEDS:
+        alt = generate_streamflow(n_years=15, seed=other)
+        alt_y = alt[TARGET].to_numpy()
+        alt_split = alt["date"].max() - pd.Timedelta(days=365 * TEST_YEARS)
+        alt_feat = lag_features(alt)
+        alt_te = (alt_feat["date"] > alt_split).to_numpy()
+        alt_cols = [c for c in alt_feat.columns if c not in ("date", TARGET)]
+        alt_ytest = alt_feat.loc[alt_te, TARGET].to_numpy()
+        alt_index = np.flatnonzero(
+            (alt["date"] > alt_split).to_numpy())[-len(alt_ytest):]
+        scores = {
+            "persistence": metrics(alt_ytest, persistence(alt_y, alt_index))["rmse"],
+            "ridge_on_features": metrics(alt_ytest, Ridge(alpha=1.0).fit(
+                alt_feat.loc[~alt_te, alt_cols], alt_feat.loc[~alt_te, TARGET]).predict(
+                    alt_feat.loc[alt_te, alt_cols]))["rmse"],
+            "xgboost": metrics(alt_ytest, XGBRegressor(
+                n_estimators=500, max_depth=6, learning_rate=0.05, subsample=0.8,
+                colsample_bytree=0.8, random_state=42, n_jobs=1, tree_method="exact",
+            ).fit(alt_feat.loc[~alt_te, alt_cols],
+                  alt_feat.loc[~alt_te, TARGET]).predict(
+                      alt_feat.loc[alt_te, alt_cols]))["rmse"],
+        }
+        scores["xgboost_beats_persistence"] = scores["xgboost"] < scores["persistence"]
+        scores["seed"] = other
+        robustness.append({k: (round(v, 3) if isinstance(v, float) else v)
+                           for k, v in scores.items()})
+        print(f"    seed {other:<5} persistence {scores['persistence']:6.3f}  "
+              f"xgboost {scores['xgboost']:6.3f}  ridge {scores['ridge_on_features']:6.3f}")
+    n_beat = sum(r["xgboost_beats_persistence"] for r in robustness)
+    print(f"    XGBoost beats persistence on {n_beat} of {len(robustness)} seeds")
+
     best_daily = min(daily_scores, key=lambda k: daily_scores[k]["rmse"])
     payload = {
         "environment": {
@@ -184,6 +224,11 @@ def main() -> int:
             "note": "the useful daily correction is about the size of daily_change_std; "
                     "a method whose deviation from lag1 exceeds it adds more error "
                     "than signal",
+        },
+        "robustness": {
+            "seeds": robustness,
+            "xgboost_beats_persistence_count": n_beat,
+            "seeds_tested": len(robustness),
         },
         "best_daily": best_daily,
         "xgboost_beats_persistence": bool(

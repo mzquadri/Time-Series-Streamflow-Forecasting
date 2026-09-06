@@ -1,6 +1,6 @@
 {
   "environment": {
-    "generated_utc": "2026-09-06T10:51:23Z"
+    "generated_utc": "2026-09-06T10:59:23Z"
   },
   "data": {
     "days": 5475,
@@ -61,11 +61,11 @@
       "n": 730
     },
     "xgboost": {
-      "rmse": 3.7308,
-      "mae": 2.8904,
-      "r2": 0.9783,
-      "nse": 0.9783,
-      "mape_percent": 1.2123,
+      "rmse": 3.1233,
+      "mae": 2.4303,
+      "r2": 0.9848,
+      "nse": 0.9848,
+      "mape_percent": 1.0311,
       "n": 730
     }
   },
@@ -100,9 +100,50 @@
     "mean_absolute_deviation_from_lag1": {
       "persistence": 0.0,
       "ridge_on_features": 1.299,
-      "xgboost": 2.625
+      "xgboost": 2.0
     },
     "note": "the useful daily correction is about the size of daily_change_std; a method whose deviation from lag1 exceeds it adds more error than signal"
+  },
+  "robustness": {
+    "seeds": [
+      {
+        "persistence": 2.757,
+        "ridge_on_features": 2.003,
+        "xgboost": 3.123,
+        "xgboost_beats_persistence": false,
+        "seed": 42
+      },
+      {
+        "persistence": 3.029,
+        "ridge_on_features": 2.089,
+        "xgboost": 9.629,
+        "xgboost_beats_persistence": false,
+        "seed": 7
+      },
+      {
+        "persistence": 2.896,
+        "ridge_on_features": 2.066,
+        "xgboost": 8.482,
+        "xgboost_beats_persistence": false,
+        "seed": 123
+      },
+      {
+        "persistence": 2.708,
+        "ridge_on_features": 2.08,
+        "xgboost": 8.917,
+        "xgboost_beats_persistence": false,
+        "seed": 2024
+      },
+      {
+        "persistence": 2.724,
+        "ridge_on_features": 1.927,
+        "xgboost": 4.233,
+        "xgboost_beats_persistence": false,
+        "seed": 99
+      }
+    ],
+    "xgboost_beats_persistence_count": 0,
+    "seeds_tested": 5
   },
   "best_daily": "ridge_on_features",
   "xgboost_beats_persistence": false

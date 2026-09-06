@@ -58,13 +58,17 @@ Daily, all six scored on the same 730 held-out days, the last two years:
 | **Ridge on features** | **2.003** | **1.596** | **0.994** |
 | Random walk with drift | 2.757 | 2.140 | 0.988 |
 | Persistence | 2.757 | 2.139 | 0.988 |
-| XGBoost | 3.731 | 2.890 | 0.978 |
+| XGBoost | 3.123 | 2.430 | 0.985 |
 | Day-of-year mean plus trend | 7.135 | 5.541 | 0.921 |
 | Day-of-year mean | 90.299 | 89.935 | -11.692 |
 
 XGBoost, reading twenty engineered lag, rolling and calendar features, is beaten by
 a one-line baseline. A ridge model on those same features is the only method that
 improves on persistence, and it does so by a real margin.
+
+This is not a quirk of one generated series. Repeating the whole comparison on
+five seeds, XGBoost fails to beat persistence on **all five**, and ridge wins on
+all five. `results/benchmark.json` records each run.
 
 The day-of-year mean's -11.69 is entirely the drift. Given the training trend to
 extrapolate, the same seasonal information reaches 0.921. Reporting the broken
@@ -79,8 +83,8 @@ is 2.89 against a series standard deviation of 55. So the entire job is predicti
 a small correction on top of a number the model already has.
 
 A tree ensemble predicts piecewise constants. It cannot represent the identity
-function exactly, and on average it lands 2.62 away from yesterday's value, which
-is nearly the size of the whole daily change. Most of that movement is error rather
+function exactly, and on average it lands 2.05 away from yesterday's value, most of
+the size of the whole daily change. Most of that movement is error rather
 than signal.
 
 Ridge represents the identity directly, with a coefficient near one on lag 1, and
@@ -106,7 +110,7 @@ Both granularities are reported, separately, each with its own baselines.
 
 Read on its own terms, SARIMAX does well: it beats a monthly random walk clearly,
 which is a genuine result the original framing obscured. What cannot be done is
-compare its 0.963 with a daily 0.978 and call one better.
+compare its 0.963 with a daily 0.985 and call one better.
 
 ## Reproducing
 
@@ -143,8 +147,9 @@ coefficient, or a target that was not dominated by its own lag, could reverse th
 ordering entirely. Nothing here says gradient boosting is generally unsuited to
 time series.
 
-The test period is a single contiguous two years scored once, with no repeated
-seeds, so the margins are single measurements rather than confidence intervals.
+The test period is a single contiguous two years per seed. The central finding is
+repeated on five generated series, where XGBoost fails to beat persistence on all
+five, but the margins themselves are point estimates rather than intervals.
 
 The models forecast one step ahead with the true previous value available. That is
 the easiest version of the problem, and multi-step forecasting, where errors
