@@ -70,6 +70,14 @@ This is not a quirk of one generated series. Repeating the whole comparison on
 five seeds, XGBoost fails to beat persistence on **all five**, and ridge wins on
 all five. `results/benchmark.json` records each run.
 
+One caveat on the XGBoost row specifically. Its exact score is not reproducible
+across machines: the same seed and the same pinned version give 3.12 here and
+3.42 on the CI runner, because the tree builder's floating point behaviour depends
+on the platform. The ordering is unaffected, since every value seen is well above
+persistence, but the number itself should be read as approximate. The repository
+check compares published numbers within 10% for that reason, and compares the
+finding exactly.
+
 The day-of-year mean's -11.69 is entirely the drift. Given the training trend to
 extrapolate, the same seasonal information reaches 0.921. Reporting the broken
 version alone made the models look better than they are.
