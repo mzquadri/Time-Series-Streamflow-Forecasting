@@ -1,8 +1,8 @@
-# Time Series Streamflow Forecasting — Dependencies
-numpy>=1.24.0
-pandas>=2.0.0
-matplotlib>=3.7.0
-scikit-learn>=1.3.0
-statsmodels>=0.14.0
-xgboost>=2.0.0
-joblib>=1.3.0
+# Pinned so a reported score can be reproduced. Versions come from installed
+# distribution metadata and the set is resolved as a whole before committing.
+matplotlib==3.10.8
+numpy==2.4.3
+pandas==2.3.3
+scikit-learn==1.8.0
+statsmodels==0.15.0
+xgboost==3.2.0

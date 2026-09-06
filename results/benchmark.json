@@ -1,0 +1,109 @@
+{
+  "environment": {
+    "generated_utc": "2026-09-06T10:51:23Z"
+  },
+  "data": {
+    "days": 5475,
+    "years": 15,
+    "seed": 42,
+    "target": "streamflow_m3s",
+    "lag1_autocorrelation": 0.9987,
+    "first_year_mean": 70.47,
+    "last_year_mean": 236.25
+  },
+  "split": {
+    "strategy": "chronological",
+    "test_years": 2,
+    "train_days": 4745,
+    "test_days": 730,
+    "scored_daily_rows": 730,
+    "note": "models lose the first 365 rows to the longest lag; baselines are rescored on the same rows"
+  },
+  "daily": {
+    "persistence": {
+      "rmse": 2.7569,
+      "mae": 2.139,
+      "r2": 0.9882,
+      "nse": 0.9882,
+      "mape_percent": 0.9266,
+      "n": 730
+    },
+    "random_walk_with_drift": {
+      "rmse": 2.7567,
+      "mae": 2.1402,
+      "r2": 0.9882,
+      "nse": 0.9882,
+      "mape_percent": 0.9271,
+      "n": 730
+    },
+    "day_of_year_mean": {
+      "rmse": 90.2985,
+      "mae": 89.9354,
+      "r2": -11.692,
+      "nse": -11.692,
+      "mape_percent": 39.0925,
+      "n": 730
+    },
+    "day_of_year_mean_plus_trend": {
+      "rmse": 7.1347,
+      "mae": 5.5407,
+      "r2": 0.9208,
+      "nse": 0.9208,
+      "mape_percent": 2.4127,
+      "n": 730
+    },
+    "ridge_on_features": {
+      "rmse": 2.0033,
+      "mae": 1.5958,
+      "r2": 0.9938,
+      "nse": 0.9938,
+      "mape_percent": 0.6971,
+      "n": 730
+    },
+    "xgboost": {
+      "rmse": 3.7308,
+      "mae": 2.8904,
+      "r2": 0.9783,
+      "nse": 0.9783,
+      "mape_percent": 1.2123,
+      "n": 730
+    }
+  },
+  "monthly": {
+    "sarimax": {
+      "rmse": 4.679,
+      "mae": 3.8286,
+      "r2": 0.963,
+      "nse": 0.963,
+      "mape_percent": 1.672,
+      "n": 24
+    },
+    "persistence": {
+      "rmse": 13.6083,
+      "mae": 11.5887,
+      "r2": 0.6869,
+      "nse": 0.6869,
+      "mape_percent": 5.0295,
+      "n": 24
+    },
+    "random_walk_with_drift": {
+      "rmse": 13.5616,
+      "mae": 11.5887,
+      "r2": 0.689,
+      "nse": 0.689,
+      "mape_percent": 5.0374,
+      "n": 24
+    }
+  },
+  "mechanism": {
+    "daily_change_std": 2.887,
+    "mean_absolute_deviation_from_lag1": {
+      "persistence": 0.0,
+      "ridge_on_features": 1.299,
+      "xgboost": 2.625
+    },
+    "note": "the useful daily correction is about the size of daily_change_std; a method whose deviation from lag1 exceeds it adds more error than signal"
+  },
+  "best_daily": "ridge_on_features",
+  "xgboost_beats_persistence": false
+}

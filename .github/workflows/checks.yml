@@ -1,0 +1,38 @@
+name: checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Tests
+        run: python -m pytest -q
+
+      - name: The benchmark reproduces from seed 42
+        # Regenerates the series and refits every model and baseline. A change in
+        # any published number shows up here rather than in the README.
+        run: python src/experiment.py
+
+      - name: Artifacts present and README agrees with the run
+        run: python scripts/check_repository.py
+
+      - name: Figures regenerate
+        run: python scripts/figures/generate_figures.py
