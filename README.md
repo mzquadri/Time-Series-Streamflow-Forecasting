@@ -94,10 +94,16 @@ forecast, and persistence has no equivalent.
 
 The conclusions do not depend on it, which is worth showing rather than asserting.
 Refitting both models without those two columns, ridge without same-day weather
-scores **2.429** and XGBoost without same-day weather scores **3.622**, against
-persistence at 2.757. Ridge still wins and XGBoost still loses; the ridge margin
-narrows from 0.75 to 0.33. `results/benchmark.json` records the ablation and the
-repository check fails if either conclusion stops holding.
+scores **2.429** against persistence at 2.757. Ridge still wins and XGBoost still
+loses; the ridge margin narrows from 0.75 to 0.33.
+
+The tree's ablated score is not quoted. It moves from 3.62 on the machine that
+produced the run to 3.19 on the CI runner, nearly 12%, which is wider than the
+10% the full-feature XGBoost row is allowed and wider than any band this
+repository has measured a reason for. It is recorded in
+`results/benchmark.json` and left out of the text rather than given an allowance
+chosen to fit it. What is checked exactly is the conclusion, which does not move:
+XGBoost loses to persistence with those columns and without them.
 
 ## Why the tree loses
 

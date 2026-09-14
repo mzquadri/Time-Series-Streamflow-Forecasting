@@ -198,12 +198,15 @@ def main() -> int:
                         f"{group} {LABELS[key]} {name}: README says {stated}, "
                         f"the run gives {actual}{note}")
 
-    # The ablation, held to the same tolerance policy as the tables above: the
-    # ridge number reproduces exactly across machines and the tree's does not.
+    # The ablation. The ridge number reproduces across machines; the tree's does
+    # not, which is why only one of the two is published.
     same_day = bench["same_day_weather"]
+    # Only ridge's ablated score is published. The tree's moves 12% between
+    # machines, wider than the 10% its full-feature row is allowed, so quoting it
+    # would mean widening a tolerance to fit a number rather than because the
+    # spread was measured. The conclusion is checked instead, just below.
     for key, label, tolerance in (
         ("ridge_on_features_rmse", "ridge without same-day weather", TOLERANCE),
-        ("xgboost_rmse", "XGBoost without same-day weather", TREE_TOLERANCE),
     ):
         stated = re.search(rf"{re.escape(label)} scores \*\*([\d.]+)\*\*", readme)
         if stated is None:
