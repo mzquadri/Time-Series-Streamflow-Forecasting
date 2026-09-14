@@ -160,6 +160,22 @@ The check fails if this README stops stating the scores the recorded run produce
 and also if a future run reverses the central finding while the text still claims
 it.
 
+It holds the four figures to the run as well. Each one records the conclusions it
+was drawn under, inside the file, and the check compares them against the recorded
+run. What is stamped is the conclusions rather than the numbers: XGBoost's score
+moves between machines, so a figure drawn here would disagree with a run made on
+the CI runner over a difference this README already describes as not meaningful.
+The near-tie between persistence and the drift baseline is left out of the stamp
+for the same reason, since they differ by 0.0002 in RMSE and by a single constant
+in their predictions.
+
+Nothing in the current tree is a serialized model. An earlier version committed a
+1.2 MB `results/xgboost_model.pkl`; it was removed when the experiment was rewritten
+to refit everything on each run, which takes under a minute. The file is still
+reachable in the git history, as removing a file from the tree does not remove it
+from the repository, and that history is not rewritten for a model this repository
+can rebuild from seed 42.
+
 ## Limitations
 
 The series is synthetic and its structure is known, which is what makes the

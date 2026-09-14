@@ -18,9 +18,17 @@ and the allowance is spent only where it was measured to be needed.
 
 import json
 import re
+import struct
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+FIGURES = ROOT / "docs" / "figures"
+
+#: Written by scripts/figures/portfolio_style.py into every figure it saves.
+FINDINGS_KEY = "RunFindings"
+
+PNG_SIGNATURE = bytes([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+NUL = bytes([0x00])
 
 REQUIRED = (
     "README.md",
@@ -66,6 +74,79 @@ def close(a: float, b: float, tolerance: float) -> bool:
     scale = max(abs(a), abs(b), 1e-9)
     return abs(a - b) / scale <= tolerance
 
+
+
+def png_text(path: Path) -> dict[str, str]:
+    """The tEXt entries of a PNG, read without a third-party imaging library."""
+    raw = path.read_bytes()
+    if raw[:len(PNG_SIGNATURE)] != PNG_SIGNATURE:
+        raise SystemExit(f"{path.name} is not a PNG")
+    entries, offset = {}, len(PNG_SIGNATURE)
+    while offset + 8 <= len(raw):
+        length = struct.unpack(">I", raw[offset:offset + 4])[0]
+        kind = raw[offset + 4:offset + 8]
+        if kind == b"tEXt":
+            key, _, value = raw[offset + 8:offset + 8 + length].partition(NUL)
+            entries[key.decode("latin-1")] = value.decode("latin-1")
+        elif kind == b"IEND":
+            break
+        offset += 12 + length
+    return entries
+
+
+def expected_findings(bench: dict) -> dict:
+    """The conclusions a figure drawn from this run would have been drawn under."""
+    return {
+        "best_daily": bench["best_daily"],
+        "xgboost_beats_persistence": bench["xgboost_beats_persistence"],
+        "xgboost_beats_persistence_count":
+            bench["robustness"]["xgboost_beats_persistence_count"],
+        "seeds_tested": bench["robustness"]["seeds_tested"],
+        "ridge_still_beats_persistence":
+            bench["same_day_weather"]["ridge_still_beats_persistence"],
+        "xgboost_still_loses_to_persistence":
+            bench["same_day_weather"]["xgboost_still_loses_to_persistence"],
+    }
+
+
+def figure_problems(bench: dict) -> list[str]:
+    """Each committed figure against the findings the recorded run supports.
+
+    The figures were checked for existence and nothing else, and continuous
+    integration regenerates them after the step that reads the run, so a figure
+    drawn under a conclusion the run no longer supports would have survived.
+
+    Values are not compared and neither are pixels. The XGBoost score moves
+    between machines, so a figure drawn here would disagree with a run made on
+    the CI runner over a difference this repository already documents as not
+    meaningful. What is compared is the set of conclusions, every one of which
+    has a margin far wider than the gap between two platforms.
+    """
+    problems: list[str] = []
+    figures = sorted(FIGURES.glob("*.png"))
+    if not figures:
+        return ["no figures in docs/figures"]
+
+    expected = expected_findings(bench)
+    renderers = set()
+    for figure in figures:
+        text = png_text(figure)
+        renderers.add(text.get("Software", "unrecorded"))
+        if FINDINGS_KEY not in text:
+            problems.append(f"{figure.name} records no findings; rerun "
+                            f"scripts/figures/generate_figures.py")
+            continue
+        stamped = json.loads(text[FINDINGS_KEY])
+        moved = sorted(k for k in expected if stamped.get(k) != expected[k])
+        if moved:
+            problems.append(f"{figure.name} was drawn when {', '.join(moved)} "
+                            f"differed; rerun scripts/figures/generate_figures.py")
+    if len(renderers) > 1:
+        problems.append(f"the figures were not rendered together: {sorted(renderers)}")
+    if not problems:
+        print(f"Figure check passed: {len(figures)} figures carry the findings "
+              f"this run supports.")
+    return problems
 
 
 def main() -> int:
@@ -136,6 +217,8 @@ def main() -> int:
     if not same_day["xgboost_still_loses_to_persistence"]:
         problems.append("XGBoost now beats persistence without same-day weather, "
                         "but the README says the conclusion survives")
+
+    problems += figure_problems(bench)
 
     # The finding itself is checked exactly, not within a tolerance.
     beats = bench["robustness"]["xgboost_beats_persistence_count"]

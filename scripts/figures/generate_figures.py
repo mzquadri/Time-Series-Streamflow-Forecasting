@@ -59,6 +59,27 @@ def load() -> dict:
     return json.loads(BENCH.read_text(encoding="utf-8"))
 
 
+def findings(bench: dict) -> dict:
+    """The conclusions the figures are drawn under, in a platform-stable form.
+
+    Every one of these has a margin far wider than the difference between two
+    machines. What is not included is the ordering of persistence against the
+    drift baseline, which differ by 0.0002 in RMSE and by a single constant in
+    their predictions, so their relative rank is not a claim worth pinning.
+    """
+    return {
+        "best_daily": bench["best_daily"],
+        "xgboost_beats_persistence": bench["xgboost_beats_persistence"],
+        "xgboost_beats_persistence_count":
+            bench["robustness"]["xgboost_beats_persistence_count"],
+        "seeds_tested": bench["robustness"]["seeds_tested"],
+        "ridge_still_beats_persistence":
+            bench["same_day_weather"]["ridge_still_beats_persistence"],
+        "xgboost_still_loses_to_persistence":
+            bench["same_day_weather"]["xgboost_still_loses_to_persistence"],
+    }
+
+
 def fig_series(bench):
     """The two properties that decide every result: drift, and near-perfect memory."""
     df = generate_streamflow(n_years=15, seed=42)
@@ -108,7 +129,7 @@ def fig_series(bench):
         f"Predicting yesterday's value is therefore a strong baseline, and a model "
         f"that cannot beat it has learned nothing about this series.",
         "Source: the seed 42 generator, results/benchmark.json."], y=0.100)
-    ps.save(fig, OUT, "01_series_character")
+    ps.save(fig, OUT, "01_series_character", findings=findings(bench))
 
 
 def fig_daily(bench):
@@ -153,7 +174,7 @@ def fig_daily(bench):
         f"{daily['day_of_year_mean_plus_trend']['rmse']:.2f}, so its failure is about "
         f"the drift, not about seasonality.",
         "Source: results/benchmark.json."], y=0.100)
-    ps.save(fig, OUT, "02_daily_comparison")
+    ps.save(fig, OUT, "02_daily_comparison", findings=findings(bench))
 
 
 def fig_mechanism(bench):
@@ -215,7 +236,7 @@ def fig_mechanism(bench):
         f"rainfall corrections that are useful.",
         "That is why it is the only method here that improves on persistence. "
         "Source: results/benchmark.json."], y=0.145)
-    ps.save(fig, OUT, "03_why_the_tree_loses")
+    ps.save(fig, OUT, "03_why_the_tree_loses", findings=findings(bench))
 
 
 def fig_granularity(bench):
@@ -261,7 +282,7 @@ def fig_granularity(bench):
         f"monthly random walk ({monthly['random_walk_with_drift']['r2']:.3f}), and on "
         f"daily values the ridge model genuinely beats persistence.",
         "Source: results/benchmark.json."], y=0.100)
-    ps.save(fig, OUT, "04_daily_against_monthly")
+    ps.save(fig, OUT, "04_daily_against_monthly", findings=findings(bench))
 
 
 def main() -> int:

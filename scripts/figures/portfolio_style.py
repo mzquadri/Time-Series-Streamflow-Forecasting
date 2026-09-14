@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
+import json
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+
+#: tEXt key holding the findings a figure was drawn under.
+FINDINGS_KEY = "RunFindings"
 
 PAPER = "#FFFFFF"
 INK = "#111827"
@@ -93,8 +98,27 @@ def footnote(fig, lines, *, y: float = 0.085, x: float = 0.065, size: float = 9.
             print(f"    caption runs off the bottom edge: {line[:58]}...")
 
 
-def save(fig, out_dir, name: str) -> None:
+def save(fig, out_dir, name: str, *, findings: dict | None = None) -> None:
+    """Write the figure, recording the findings it was drawn under.
+
+    What is stamped is the set of conclusions, not the numbers. The numbers here
+    are not all reproducible across machines: XGBoost's RMSE is 3.12 on the
+    machine that produced the committed run and 3.42 on the CI runner, because
+    the tree builder's floating point behaviour depends on the platform, and the
+    README says so. Stamping values would make a figure drawn here disagree with
+    a run made there for a reason that is not a disagreement.
+
+    The conclusions do not move, and those are what the figures assert. The
+    near-tie between persistence and the drift baseline, 0.0002 apart in RMSE, is
+    deliberately left out: their relative order is not something this repository
+    claims is stable.
+
+    matplotlib merges this with its own defaults, so the Software entry naming
+    the version that rendered the file is still written.
+    """
     out_dir.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out_dir / f"{name}.png")
+    metadata = None if findings is None else {
+        FINDINGS_KEY: json.dumps(findings, sort_keys=True)}
+    fig.savefig(out_dir / f"{name}.png", metadata=metadata)
     plt.close(fig)
     print(f"  wrote {name}.png")
