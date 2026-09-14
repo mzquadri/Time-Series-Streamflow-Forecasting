@@ -1,6 +1,6 @@
 {
   "environment": {
-    "generated_utc": "2026-09-06T10:59:23Z"
+    "generated_utc": "2026-09-13T23:59:07Z"
   },
   "data": {
     "days": 5475,
@@ -103,6 +103,17 @@
       "xgboost": 2.0
     },
     "note": "the useful daily correction is about the size of daily_change_std; a method whose deviation from lag1 exceeds it adds more error than signal"
+  },
+  "same_day_weather": {
+    "columns_removed": [
+      "precipitation_mm",
+      "temperature_c"
+    ],
+    "ridge_on_features_rmse": 2.429,
+    "xgboost_rmse": 3.622,
+    "persistence_rmse": 2.757,
+    "ridge_still_beats_persistence": true,
+    "xgboost_still_loses_to_persistence": true
   },
   "robustness": {
     "seeds": [

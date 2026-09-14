@@ -82,6 +82,23 @@ The day-of-year mean's -11.69 is entirely the drift. Given the training trend to
 extrapolate, the same seasonal information reaches 0.921. Reporting the broken
 version alone made the models look better than they are.
 
+## What the feature models can see
+
+The two models that read features get something the baselines do not. Every
+engineered feature is shifted by at least a day, so no row sees its own target,
+but the raw `precipitation_mm` and `temperature_c` columns pass through unshifted
+and stay in the matrix. A row predicting day t therefore carries the rain measured
+on day t, and the generator does drive same-day flow from same-day rain. That
+makes this a nowcast with observed weather rather than a pure one-step-ahead
+forecast, and persistence has no equivalent.
+
+The conclusions do not depend on it, which is worth showing rather than asserting.
+Refitting both models without those two columns, ridge without same-day weather
+scores **2.429** and XGBoost without same-day weather scores **3.622**, against
+persistence at 2.757. Ridge still wins and XGBoost still loses; the ridge margin
+narrows from 0.75 to 0.33. `results/benchmark.json` records the ablation and the
+repository check fails if either conclusion stops holding.
+
 ## Why the tree loses
 
 ![Why the tree loses](docs/figures/03_why_the_tree_loses.png)

@@ -46,11 +46,23 @@ LAGS = [1, 2, 3, 7, 14, 30, 365]
 WINDOWS = [7, 14, 30]
 
 
+#: Columns of the raw frame that survive into the feature matrix unshifted, so a
+#: row carries the weather measured on the day it is predicting. They do not
+#: reveal the target, and the generator does drive same-day discharge from
+#: same-day rain, so this is a nowcast with observed weather rather than a pure
+#: one-step-ahead forecast. Both are defensible; the difference is worth stating,
+#: and `same_day_weather` in the benchmark records what the results look like
+#: without them.
+SAME_DAY_COLUMNS = ("precipitation_mm", "temperature_c")
+
+
 def lag_features(df: pd.DataFrame) -> pd.DataFrame:
     """Calendar, lagged target and lagged precipitation features.
 
-    Every feature is shifted by at least one day, and rolling statistics are taken
-    after a shift, so no row can see its own target or anything later.
+    Every feature this function adds is shifted by at least one day, and rolling
+    statistics are taken after a shift, so no row can see its own target or
+    anything later. The raw weather columns pass through untouched and are listed
+    in SAME_DAY_COLUMNS.
     """
     out = df.copy()
     doy = out["date"].dt.dayofyear
@@ -163,6 +175,32 @@ def main() -> int:
     }
     daily_change_std = float(np.diff(y).std())
 
+    # The feature models read same-day rain and temperature; the baselines do not.
+    # That is an advantage the table does not otherwise show, so the same two
+    # models are refitted without those columns. If a conclusion depended on the
+    # extra information it would move here.
+    lagged_only = [c for c in columns if c not in SAME_DAY_COLUMNS]
+    same_day = {
+        "columns_removed": list(SAME_DAY_COLUMNS),
+        "ridge_on_features_rmse": round(float(metrics(y_test, Ridge(alpha=1.0).fit(
+            x_train[lagged_only], y_train).predict(x_test[lagged_only]))["rmse"]), 3),
+        "xgboost_rmse": round(float(metrics(y_test, XGBRegressor(
+            n_estimators=500, max_depth=6, learning_rate=0.05, subsample=0.8,
+            colsample_bytree=0.8, random_state=42, n_jobs=1, tree_method="exact",
+        ).fit(x_train[lagged_only], y_train).predict(x_test[lagged_only]))["rmse"]), 3),
+        "persistence_rmse": round(daily_scores["persistence"]["rmse"], 3),
+    }
+    same_day["ridge_still_beats_persistence"] = bool(
+        same_day["ridge_on_features_rmse"] < same_day["persistence_rmse"])
+    same_day["xgboost_still_loses_to_persistence"] = bool(
+        same_day["xgboost_rmse"] > same_day["persistence_rmse"])
+    print("\n  the same two models without same-day weather:")
+    print(f"    ridge {same_day['ridge_on_features_rmse']:.3f}  "
+          f"xgboost {same_day['xgboost_rmse']:.3f}  "
+          f"persistence {same_day['persistence_rmse']:.3f}")
+    print(f"    ridge still wins: {same_day['ridge_still_beats_persistence']}, "
+          f"xgboost still loses: {same_day['xgboost_still_loses_to_persistence']}")
+
     # One seed is one measurement. The central claim is repeated across several
     # generated series so it is not a property of seed 42.
     print("\n  repeating the comparison on other seeds:")
@@ -225,6 +263,7 @@ def main() -> int:
                     "a method whose deviation from lag1 exceeds it adds more error "
                     "than signal",
         },
+        "same_day_weather": same_day,
         "robustness": {
             "seeds": robustness,
             "xgboost_beats_persistence_count": n_beat,

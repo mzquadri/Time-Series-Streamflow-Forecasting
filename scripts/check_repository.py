@@ -67,6 +67,7 @@ def close(a: float, b: float, tolerance: float) -> bool:
     return abs(a - b) / scale <= tolerance
 
 
+
 def main() -> int:
     missing = [path for path in REQUIRED if not (ROOT / path).is_file()]
     if missing:
@@ -115,6 +116,26 @@ def main() -> int:
                     problems.append(
                         f"{group} {LABELS[key]} {name}: README says {stated}, "
                         f"the run gives {actual}{note}")
+
+    # The ablation, held to the same tolerance policy as the tables above: the
+    # ridge number reproduces exactly across machines and the tree's does not.
+    same_day = bench["same_day_weather"]
+    for key, label, tolerance in (
+        ("ridge_on_features_rmse", "ridge without same-day weather", TOLERANCE),
+        ("xgboost_rmse", "XGBoost without same-day weather", TREE_TOLERANCE),
+    ):
+        stated = re.search(rf"{re.escape(label)} scores \*\*([\d.]+)\*\*", readme)
+        if stated is None:
+            problems.append(f"the README does not state what {label} scores")
+        elif not close(float(stated.group(1)), same_day[key], tolerance):
+            problems.append(f"{label}: README says {stated.group(1)}, the run "
+                            f"gives {same_day[key]}")
+    if not same_day["ridge_still_beats_persistence"]:
+        problems.append("ridge no longer beats persistence without same-day "
+                        "weather, but the README says the conclusion survives")
+    if not same_day["xgboost_still_loses_to_persistence"]:
+        problems.append("XGBoost now beats persistence without same-day weather, "
+                        "but the README says the conclusion survives")
 
     # The finding itself is checked exactly, not within a tolerance.
     beats = bench["robustness"]["xgboost_beats_persistence_count"]
