@@ -5,12 +5,22 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Least privilege, per GitHub's "Security hardening for GitHub Actions". This job reads
+# the repository, refits every model from seed 42, reconciles the README against the run
+# and regenerates the figures. It publishes nothing.
+permissions:
+  contents: read
+
 jobs:
   checks:
     runs-on: ubuntu-latest
+    # The benchmark step refits six daily methods, three monthly ones, and repeats the
+    # comparison across five seeds, so this is the one job here that does real work.
+    # Observed runs finish in about 70 seconds; the cap is headroom, not a target.
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: pip
