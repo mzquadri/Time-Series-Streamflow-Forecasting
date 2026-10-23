@@ -47,6 +47,46 @@ by the 0.15 pull coefficient, amplifying it about sevenfold, so the mean rises f
 70.5 in the first year to 236.2 in the last. That is why a day-of-year average fails:
 it is fitted on years that sat far lower.
 
+## How the comparison is set up
+
+The design is the argument here, so it is worth seeing before the table. Every number
+below is read from [`results/benchmark.json`](results/benchmark.json).
+
+```mermaid
+flowchart TB
+    G["src/generate_data.py<br/>seed 42, 85% of yesterday carried forward"] --> S["5,475 days, 15 years<br/><b>lag-1 autocorrelation 0.9987</b>"]
+    S --> SP{"chronological split<br/>never shuffled"}
+    SP -->|"first 13 years"| TR["train, 4,745 days"]
+    SP -->|"last 2 years"| TE["test, 730 days"]
+
+    TR --> FIT["fit the two feature models"]
+    FIT --> SC["<b>scored on the same 730 rows</b><br/>models lose the first 365 to the longest lag,<br/>so the baselines are rescored to match"]
+    TE --> SC
+
+    SC --> R1["ridge on features &nbsp; <b>RMSE 2.003</b>"]
+    SC --> R2["persistence &nbsp; RMSE 2.757"]
+    SC --> R3["XGBoost &nbsp; RMSE 3.123"]
+    SC --> R4["day-of-year mean &nbsp; RMSE 90.299"]
+
+    linkStyle 0,1,2,3,4,5,6 stroke:#2563EB
+    linkStyle 7 stroke:#059669
+    linkStyle 8 stroke:#6B7280
+    linkStyle 9 stroke:#DC2626
+    linkStyle 10 stroke:#DC2626
+```
+
+Two details in that diagram do the work that makes the comparison fair, and both are
+easy to get wrong.
+
+**The split is chronological and never shuffled.** On a series whose lag-1
+autocorrelation is 0.9987, a random split hands the model neighbours of its own test
+rows, and every method then looks excellent.
+
+**Everything is scored on the same 730 rows.** The feature models lose the first 365
+test rows to the longest lag they read, so the baselines are rescored on what is left
+rather than keeping their easier head start. A comparison where the baseline is scored
+on more rows than the model is not a comparison.
+
 ## Results
 
 ![Daily comparison](docs/figures/02_daily_comparison.png)
